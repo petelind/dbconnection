@@ -1,0 +1,183 @@
+Setting Up a Spring Boot Application with DB2 and JPA
+=====================================================
+
+This guide will help you set up a Spring Boot application with a DB2 database using JPA.
+
+1. Add DB2 Dependency
+----------------------
+
+Add the DB2 driver dependency to your `pom.xml`:
+
+.. code-block:: xml
+
+    <dependency>
+        <groupId>com.ibm.db2</groupId>
+        <artifactId>jcc</artifactId>
+        <version>11.5.7.0</version>
+    </dependency>
+
+2. Configure `application.properties`
+--------------------------------------
+
+Update your `application.properties` file with the DB2 connection properties:
+
+.. code-block:: ini
+
+    spring.datasource.url=jdbc:db2://your-db2-host:50000/your-db2-database
+    spring.datasource.username=your-db2-username
+    spring.datasource.password=your-db2-password
+    spring.datasource.driver-class-name=com.ibm.db2.jcc.DB2Driver
+    spring.jpa.database-platform=org.hibernate.dialect.DB2Dialect
+    spring.jpa.hibernate.ddl-auto=none
+
+3. Configure `DatabaseConfig` Class
+------------------------------------
+
+Ensure your `DatabaseConfig` class is set up to use the properties defined in `application.properties`:
+
+.. code-block:: java
+
+    package com.example;
+
+    import jakarta.annotation.Resource;
+    import org.apache.commons.dbcp2.BasicDataSource;
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.core.env.Environment;
+    import org.springframework.jdbc.core.JdbcTemplate;
+
+    import javax.sql.DataSource;
+
+    @Configuration
+    public class DatabaseConfig {
+
+        @Resource
+        private Environment env;
+
+        @Bean
+        public DataSource dataSource() {
+            BasicDataSource ds = new BasicDataSource();
+            ds.setDriverClassName(env.getProperty("spring.datasource.driver-class-name"));
+            ds.setUrl(env.getProperty("spring.datasource.url"));
+            ds.setUsername(env.getProperty("spring.datasource.username"));
+            ds.setPassword(env.getProperty("spring.datasource.password"));
+            return ds;
+        }
+
+        @Bean
+        public JdbcTemplate jdbcTemplate() {
+            return new JdbcTemplate(dataSource());
+        }
+    }
+
+4. Create the `Book` Entity
+----------------------------
+
+Define the `Book` entity in `src/main/java/com/example/dbtable/Book.java`:
+
+.. code-block:: java
+
+    package com.example.dbtable;
+
+    import jakarta.persistence.Column;
+    import jakarta.persistence.Entity;
+    import jakarta.persistence.Id;
+    import jakarta.persistence.Table;
+
+    @Entity
+    @Table(name = "books")
+    public class Book {
+
+        @Id
+        @Column(name = "id", updatable = false, insertable = false)
+        private Integer id;
+
+        @Column(name = "title", updatable = false, insertable = false)
+        private String title;
+
+        @Column(name = "description", updatable = false, insertable = false)
+        private String description;
+
+        @Column(name = "year", updatable = false, insertable = false)
+        private Integer year;
+
+        // Getters only, no setters to ensure read-only access
+        public Integer getId() {
+            return id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public Integer getYear() {
+            return year;
+        }
+    }
+
+5. Create the `BookRepository` Interface
+-----------------------------------------
+
+Define the `BookRepository` interface in `src/main/java/com/example/dbtable/BookRepository.java`:
+
+.. code-block:: java
+
+    package com.example.dbtable;
+
+    import org.springframework.data.jpa.repository.JpaRepository;
+
+    public interface BookRepository extends JpaRepository<Book, Integer> {
+    }
+
+6. Create the `BooksController` Class
+--------------------------------------
+
+Define the `BooksController` class in `src/main/java/com/example/dbtable/BooksController.java`:
+
+.. code-block:: java
+
+    package com.example.dbtable;
+
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import java.util.List;
+
+    @RestController
+    public class BooksController {
+
+        private final BookRepository bookRepository;
+
+        public BooksController(BookRepository bookRepository) {
+            this.bookRepository = bookRepository;
+        }
+
+        @GetMapping("/books")
+        public List<Book> getBooks() {
+            return bookRepository.findAll();
+        }
+    }
+
+7. Main Application Class
+--------------------------
+
+Ensure your main application class is defined in `src/main/java/com/example/dbtable/DbtableApplication.java`:
+
+.. code-block:: java
+
+    package com.example.dbtable;
+
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+    @SpringBootApplication
+    public class DbtableApplication {
+
+        public static void main(String[] args) {
+            SpringApplication.run(DbtableApplication.class, args);
+        }
+    }
